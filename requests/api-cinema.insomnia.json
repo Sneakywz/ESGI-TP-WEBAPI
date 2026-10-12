@@ -1,0 +1,334 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-10-12T16:00:00.000Z",
+  "__export_source": "insomnia.desktop.app:v13.3.1",
+  "resources": [
+    {
+      "_id": "wrk_api_cinema",
+      "_type": "workspace",
+      "parentId": null,
+      "name": "API Cinéma",
+      "scope": "collection",
+      "description": ""
+    },
+    {
+      "_id": "env_api_cinema",
+      "_type": "environment",
+      "parentId": "wrk_api_cinema",
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:3000"
+      }
+    },
+    {
+      "_id": "req_accueil",
+      "_type": "request",
+      "parentId": "wrk_api_cinema",
+      "name": "accueil",
+      "method": "GET",
+      "url": "{{ _.base_url }}/",
+      "metaSortKey": 1,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "fld_films",
+      "_type": "request_group",
+      "parentId": "wrk_api_cinema",
+      "name": "films",
+      "metaSortKey": 2
+    },
+    {
+      "_id": "req_films_list",
+      "_type": "request",
+      "parentId": "fld_films",
+      "name": "films-list",
+      "method": "GET",
+      "url": "{{ _.base_url }}/films?page=1&limit=5",
+      "metaSortKey": 3,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_films_get",
+      "_type": "request",
+      "parentId": "fld_films",
+      "name": "films-get",
+      "method": "GET",
+      "url": "{{ _.base_url }}/films/3",
+      "metaSortKey": 4,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_films_get_404",
+      "_type": "request",
+      "parentId": "fld_films",
+      "name": "films-get-404",
+      "method": "GET",
+      "url": "{{ _.base_url }}/films/9999",
+      "metaSortKey": 5,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_films_create",
+      "_type": "request",
+      "parentId": "fld_films",
+      "name": "films-create",
+      "method": "POST",
+      "url": "{{ _.base_url }}/films",
+      "metaSortKey": 6,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"titre\": \"Mon film\",\n  \"duree_min\": 120,\n  \"classification\": \"-12\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_films_replace",
+      "_type": "request",
+      "parentId": "fld_films",
+      "name": "films-replace",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/films/21",
+      "metaSortKey": 7,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"titre\": \"Mon film (version longue)\",\n  \"duree_min\": 150,\n  \"classification\": \"-12\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_films_update",
+      "_type": "request",
+      "parentId": "fld_films",
+      "name": "films-update",
+      "method": "PATCH",
+      "url": "{{ _.base_url }}/films/21",
+      "metaSortKey": 8,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"duree_min\": 125\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_films_delete",
+      "_type": "request",
+      "parentId": "fld_films",
+      "name": "films-delete",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/films/21",
+      "metaSortKey": 9,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_films_delete_409",
+      "_type": "request",
+      "parentId": "fld_films",
+      "name": "films-delete-409",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/films/3",
+      "metaSortKey": 10,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "fld_seances",
+      "_type": "request_group",
+      "parentId": "wrk_api_cinema",
+      "name": "seances",
+      "metaSortKey": 11
+    },
+    {
+      "_id": "req_seances_list",
+      "_type": "request",
+      "parentId": "fld_seances",
+      "name": "seances-list",
+      "method": "GET",
+      "url": "{{ _.base_url }}/seances?page=1&limit=10",
+      "metaSortKey": 12,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_seances_list_filtered",
+      "_type": "request",
+      "parentId": "fld_seances",
+      "name": "seances-list-filtered",
+      "method": "GET",
+      "url": "{{ _.base_url }}/seances?film=18&salle=2&date=2026-10-11",
+      "metaSortKey": 13,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_seances_list_sorted",
+      "_type": "request",
+      "parentId": "fld_seances",
+      "name": "seances-list-sorted",
+      "method": "GET",
+      "url": "{{ _.base_url }}/seances?tri=salle_id,debut&ordre=desc&limit=10",
+      "metaSortKey": 14,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_seances_list_tri_invalide_400",
+      "_type": "request",
+      "parentId": "fld_seances",
+      "name": "seances-list-tri-invalide-400",
+      "method": "GET",
+      "url": "{{ _.base_url }}/seances?tri=prix",
+      "metaSortKey": 15,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_seances_get",
+      "_type": "request",
+      "parentId": "fld_seances",
+      "name": "seances-get",
+      "method": "GET",
+      "url": "{{ _.base_url }}/seances/253",
+      "metaSortKey": 16,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_seances_get_404",
+      "_type": "request",
+      "parentId": "fld_seances",
+      "name": "seances-get-404",
+      "method": "GET",
+      "url": "{{ _.base_url }}/seances/9999",
+      "metaSortKey": 17,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_seances_create",
+      "_type": "request",
+      "parentId": "fld_seances",
+      "name": "seances-create",
+      "method": "POST",
+      "url": "{{ _.base_url }}/seances",
+      "metaSortKey": 18,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"film_id\": 3,\n  \"salle_id\": 1,\n  \"debut\": \"2026-12-24T20:00:00Z\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_seances_replace",
+      "_type": "request",
+      "parentId": "fld_seances",
+      "name": "seances-replace",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/seances/1009",
+      "metaSortKey": 19,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"film_id\": 3,\n  \"salle_id\": 2,\n  \"debut\": \"2026-12-24T21:00:00Z\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_seances_update",
+      "_type": "request",
+      "parentId": "fld_seances",
+      "name": "seances-update",
+      "method": "PATCH",
+      "url": "{{ _.base_url }}/seances/1009",
+      "metaSortKey": 20,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"salle_id\": 4\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_seances_delete",
+      "_type": "request",
+      "parentId": "fld_seances",
+      "name": "seances-delete",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/seances/1009",
+      "metaSortKey": 21,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {}
+    }
+  ]
+}
