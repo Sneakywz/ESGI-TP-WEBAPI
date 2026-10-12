@@ -2,22 +2,30 @@
 const express = require('express');
 const { db, nextId } = require('../store');
 const { paginer } = require('../pagination');
+const { BadRequestError, NotFoundError } = require('../errors');
+const { z, valider } = require('../validation');
 
 const router = express.Router();
 
-// Champs qu'un client peut envoyer (l'id est attribué par le serveur, les champs inconnus sont ignorés).
-const CHAMPS = ['film_id', 'salle_id', 'debut'];
+// Règles d'une séance, décrites une seule fois (l'id est attribué par le serveur, les champs inconnus sont ignorés).
+// film_id et salle_id doivent désigner un film et une salle existants : sinon 422 (le corps est lisible,
+// mais il référence une ressource absente ; ce n'est pas un 404, l'URL /seances existe bien).
+const seanceSchema = z.object({
+  film_id: z.number({ error: 'doit être un nombre' }).int('doit être un entier')
+    .refine((id) => db.films.some((film) => film.id === id), "ce film n'existe pas"),
+  salle_id: z.number({ error: 'doit être un nombre' }).int('doit être un entier')
+    .refine((id) => db.salles.some((salle) => salle.id === id), "cette salle n'existe pas"),
+  debut: z.iso.datetime({ error: 'doit être une date ISO 8601 en UTC, ex. 2026-12-24T20:00:00Z' }),
+});
 
 // Champs sur lesquels on autorise le tri.
 const CHAMPS_TRIABLES = ['debut', 'id', 'film_id', 'salle_id'];
 
+// Position de la séance dans le store ; lève une 404 si elle n'existe pas.
 function indexDeLaSeance(id) {
-  return db.seances.findIndex((seance) => seance.id === Number(id));
-}
-
-function seanceIntrouvable(res, id) {
-  // Format provisoire : remplacé par application/problem+json au TP3.
-  return res.status(404).json({ erreur: `La séance ${id} n'existe pas.` });
+  const index = db.seances.findIndex((seance) => seance.id === Number(id));
+  if (index === -1) throw new NotFoundError(`La séance ${id} n'existe pas.`);
+  return index;
 }
 
 // Lister : filtres optionnels et combinables, tri stable, pagination offset.
@@ -39,7 +47,7 @@ router.get('/', (req, res) => {
   const cles = (req.query.tri ?? 'debut,id').split(',');
   const cleInconnue = cles.find((cle) => !CHAMPS_TRIABLES.includes(cle));
   if (cleInconnue) {
-    return res.status(400).json({ erreur: `Tri impossible sur "${cleInconnue}". Champs autorisés : ${CHAMPS_TRIABLES.join(', ')}.` });
+    throw new BadRequestError(`Tri impossible sur "${cleInconnue}". Champs autorisés : ${CHAMPS_TRIABLES.join(', ')}.`);
   }
   if (!cles.includes('id')) cles.push('id');
 
@@ -59,44 +67,31 @@ router.get('/', (req, res) => {
 // Lire : 200 + la séance, ou 404.
 router.get('/:id', (req, res) => {
   const index = indexDeLaSeance(req.params.id);
-  if (index === -1) return seanceIntrouvable(res, req.params.id);
   res.json(db.seances[index]);
 });
 
-// Créer : 201 + en-tête Location vers la nouvelle séance.
-router.post('/', (req, res) => {
-  const corps = req.body ?? {};
-  const seance = { id: nextId('seances') };
-  for (const champ of CHAMPS) seance[champ] = corps[champ];
+// Créer : corps validé, puis 201 + en-tête Location vers la nouvelle séance.
+router.post('/', valider(seanceSchema), (req, res) => {
+  const seance = { id: nextId('seances'), ...req.body };
 
   db.seances.push(seance);
   res.status(201).location(`/seances/${seance.id}`).json(seance);
 });
 
-// Remplacer : PUT remplace la ressource entière, un champ absent du corps est effacé (null).
-router.put('/:id', (req, res) => {
+// Remplacer : PUT envoie la ressource entière, donc tous les champs sont requis (sinon 422).
+router.put('/:id', valider(seanceSchema), (req, res) => {
   const index = indexDeLaSeance(req.params.id);
-  if (index === -1) return seanceIntrouvable(res, req.params.id);
 
-  const corps = req.body ?? {};
-  const seance = { id: db.seances[index].id };
-  for (const champ of CHAMPS) seance[champ] = corps[champ] ?? null;
-
+  const seance = { id: db.seances[index].id, ...req.body };
   db.seances[index] = seance;
   res.json(seance);
 });
 
-// Modifier : PATCH ne change que les champs fournis.
-router.patch('/:id', (req, res) => {
+// Modifier : PATCH ne change que les champs fournis (tous optionnels, mais valides s'ils sont présents).
+router.patch('/:id', valider(seanceSchema.partial()), (req, res) => {
   const index = indexDeLaSeance(req.params.id);
-  if (index === -1) return seanceIntrouvable(res, req.params.id);
 
-  const corps = req.body ?? {};
-  const seance = db.seances[index];
-  for (const champ of CHAMPS) {
-    if (corps[champ] !== undefined) seance[champ] = corps[champ];
-  }
-
+  const seance = Object.assign(db.seances[index], req.body);
   res.json(seance);
 });
 
@@ -105,7 +100,6 @@ router.patch('/:id', (req, res) => {
 // des réservations de la séance, de leurs sièges réservés et de leurs paiements.
 router.delete('/:id', (req, res) => {
   const index = indexDeLaSeance(req.params.id);
-  if (index === -1) return seanceIntrouvable(res, req.params.id);
 
   const id = db.seances[index].id;
   const idsReservations = db.reservations.filter((r) => r.seance_id === id).map((r) => r.id);

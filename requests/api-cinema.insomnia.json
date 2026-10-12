@@ -329,6 +329,152 @@
       "headers": [],
       "parameters": [],
       "authentication": {}
+    },
+    {
+      "_id": "fld_erreurs",
+      "_type": "request_group",
+      "parentId": "wrk_api_cinema",
+      "name": "erreurs",
+      "metaSortKey": 22
+    },
+    {
+      "_id": "req_films_create_422_multi_champs",
+      "_type": "request",
+      "parentId": "fld_erreurs",
+      "name": "films-create-422-multi-champs",
+      "method": "POST",
+      "url": "{{ _.base_url }}/films",
+      "metaSortKey": 23,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"titre\": \"\",\n  \"duree_min\": -50,\n  \"classification\": \"pour adultes\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_films_create_400_json_illisible",
+      "_type": "request",
+      "parentId": "fld_erreurs",
+      "name": "films-create-400-json-illisible",
+      "method": "POST",
+      "url": "{{ _.base_url }}/films",
+      "metaSortKey": 24,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{ \"titre\": "
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_films_create_400_sans_content_type",
+      "_type": "request",
+      "parentId": "fld_erreurs",
+      "name": "films-create-400-sans-content-type",
+      "method": "POST",
+      "url": "{{ _.base_url }}/films",
+      "metaSortKey": 25,
+      "body": {
+        "mimeType": "text/plain",
+        "text": "titre=Dune"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "text/plain"
+        }
+      ],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_films_replace_422_put_partiel",
+      "_type": "request",
+      "parentId": "fld_erreurs",
+      "name": "films-replace-422-put-partiel",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/films/3",
+      "metaSortKey": 26,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"titre\": \"Seul le titre\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_films_update_422_type_invalide",
+      "_type": "request",
+      "parentId": "fld_erreurs",
+      "name": "films-update-422-type-invalide",
+      "method": "PATCH",
+      "url": "{{ _.base_url }}/films/3",
+      "metaSortKey": 27,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"duree_min\": \"deux heures\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_seances_create_422_film_inexistant",
+      "_type": "request",
+      "parentId": "fld_erreurs",
+      "name": "seances-create-422-film-inexistant",
+      "method": "POST",
+      "url": "{{ _.base_url }}/seances",
+      "metaSortKey": 28,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"film_id\": 999,\n  \"salle_id\": 1,\n  \"debut\": \"24/12/2026 20h\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_route_inconnue_404",
+      "_type": "request",
+      "parentId": "fld_erreurs",
+      "name": "route-inconnue-404",
+      "method": "GET",
+      "url": "{{ _.base_url }}/toto",
+      "metaSortKey": 29,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {}
     }
   ]
 }

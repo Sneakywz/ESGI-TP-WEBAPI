@@ -54,3 +54,37 @@ Stocké vs calculé :
 - stocké : les données du kit ci-dessus, `statut` et `expire_le` d'une réservation (hold temporaire)
 - calculé à la demande : les sièges libres d'une séance (sièges de la salle moins ceux des réservations `held` non expirées ou `confirmed`), le nombre de places restantes, l'heure de fin d'une séance (`debut` + `duree_min` du film)
 - `reservations_sieges` n'est pas exposée comme collection : une ressource n'est pas une table. Elle apparaît dans l'API sous la forme du champ `sieges` d'une réservation (`"sieges": ["F12", "F13"]`).
+
+## Erreurs et validation
+
+### Format d'erreur unique
+Toutes les erreurs sortent en `application/problem+json` (RFC 9457), produites par un handler central
+(`src/errorHandler.js`) : les routes lèvent des erreurs typées (`src/errors.js`), elles ne construisent
+jamais la réponse d'erreur.
+
+| Erreur levée | Code | `type` (catégorie) |
+|---|---|---|
+| `BadRequestError` | `400` | `.../errors/bad-request` |
+| `NotFoundError` | `404` | `.../errors/not-found` |
+| `ConflictError` | `409` | `.../errors/conflict` |
+| `ValidationError` | `422` | `.../errors/validation` (+ extension `errors[]` : `{ field, message }`) |
+| erreur imprévue | `500` | `.../errors/internal` : message générique, détail uniquement dans les logs serveur |
+
+`title` résume la catégorie et ne change pas ; `detail` décrit le cas précis. Aucune *stack trace* n'est
+renvoyée au client.
+
+### Validation
+Chaque `POST`, `PUT` et `PATCH` est validé avant la logique métier par un schéma déclaratif (zod) placé à
+côté des routes. `PUT` exige tous les champs (la ressource est remplacée en entier) ; `PATCH` les accepte
+tous optionnels, mais valides s'ils sont présents. En cas d'échec, tous les champs fautifs sont renvoyés
+en une seule réponse.
+
+- **`400`** : requête illisible. JSON invalide, `Content-Type: application/json` absent sur une écriture,
+  paramètre de tri inconnu (`?tri=prix`).
+- **`422`** : corps lisible mais invalide. Champ requis absent, mauvais type, durée ≤ 0, classification hors
+  liste, date non ISO 8601, `film_id` ou `salle_id` qui ne désigne aucune ressource existante (ce n'est pas
+  un `404` : l'URL `/seances` existe, c'est le contenu qui référence une ressource absente).
+- **Champs inconnus : ignorés** (retirés du corps), y compris `id`, toujours attribué par le serveur.
+  Choix tolérant envers les clients, cohérent avec la règle des extensions de problem+json.
+- Paramètres de pagination non numériques ou hors bornes : ramenés à une valeur valide (page ≥ 1,
+  1 ≤ limit ≤ 100) plutôt que refusés.

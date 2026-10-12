@@ -3,8 +3,13 @@
 const express = require('express');
 const filmsRouter = require('./routes/films');
 const seancesRouter = require('./routes/seances');
+const { routeInconnue, errorHandler } = require('./errorHandler');
+const { exigerJson } = require('./validation');
 
 const app = express();
+
+// Écritures sans Content-Type: application/json -> 400.
+app.use(exigerJson);
 
 // Lit le corps des requêtes JSON et le met dans req.body.
 app.use(express.json());
@@ -17,5 +22,9 @@ app.get('/', (req, res) => {
 // Chaque collection a son routeur : toutes les URIs /films/... sont gérées dans routes/films.js.
 app.use('/films', filmsRouter);
 app.use('/seances', seancesRouter);
+
+// Toujours en dernier : URL inconnue -> 404, puis toutes les erreurs -> problem+json.
+app.use(routeInconnue);
+app.use(errorHandler);
 
 module.exports = app;
