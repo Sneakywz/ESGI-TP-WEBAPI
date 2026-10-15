@@ -8,9 +8,14 @@ function etagDe(ressource) {
   return `"${empreinte.slice(0, 16)}"`;
 }
 
+// Valeur d'une étiquette sans le préfixe W/ ni les guillemets (le client peut les omettre).
+function nettoyer(etiquette) {
+  return etiquette.trim().replace(/^W\//, '').replace(/^"|"$/g, '');
+}
+
 // Liste des étiquettes d'un en-tête If-Match / If-None-Match (ex. "abc", W/"def").
 function etiquettes(entete) {
-  return (entete ?? '').split(',').map((e) => e.trim().replace(/^W\//, '')).filter(Boolean);
+  return (entete ?? '').split(',').map(nettoyer).filter(Boolean);
 }
 
 // Lecture : envoie la ressource avec son ETag ; si le client a déjà cette version (If-None-Match),
@@ -19,7 +24,7 @@ function repondreAvecEtag(req, res, ressource) {
   const etag = etagDe(ressource);
   res.set('ETag', etag);
   const connues = etiquettes(req.get('If-None-Match'));
-  if (connues.includes(etag) || connues.includes('*')) {
+  if (connues.includes(nettoyer(etag)) || connues.includes('*')) {
     return res.status(304).end();
   }
   return res.json(ressource);
@@ -31,7 +36,7 @@ function repondreAvecEtag(req, res, ressource) {
 function verifierIfMatch(req, ressource) {
   const attendues = etiquettes(req.get('If-Match'));
   if (attendues.length === 0 || attendues.includes('*')) return;
-  if (!attendues.includes(etagDe(ressource))) {
+  if (!attendues.includes(nettoyer(etagDe(ressource)))) {
     throw new PreconditionFailedError(
       'La ressource a été modifiée depuis votre lecture (ETag différent). Relisez-la puis réessayez.',
     );
