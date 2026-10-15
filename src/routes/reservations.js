@@ -1,16 +1,21 @@
-// Réservations : plan de salle, hold temporaire, lecture, annulation.
+// Réservations : plan de salle, hold temporaire, confirmation idempotente, historique par curseur.
 // C'est ici que se joue le piège du sujet : deux clients sur le même siège.
 const express = require('express');
 const { db, nextId } = require('../store');
 const horloge = require('../horloge');
 const { paginer } = require('../pagination');
-const { NotFoundError, ConflictError, ValidationError } = require('../errors');
+const { BadRequestError, NotFoundError, ConflictError, ValidationError } = require('../errors');
 const { z, valider } = require('../validation');
+const { repondreAvecEtag } = require('../etag');
+const { idempotent } = require('../idempotence');
 const {
-  DUREE_HOLD_MINUTES, siegesDeLaSeance, idsSiegesPris, representer,
+  DUREE_HOLD_MINUTES, actualiserStatut, siegesDeLaSeance, idsSiegesPris, representer,
 } = require('../reservations');
 
 const router = express.Router();
+
+// Tarif unique simulé, en centimes (celui des paiements du kit).
+const PRIX_SIEGE_CENTIMES = 950;
 
 const reservationSchema = z.object({
   client_id: z.number({ error: 'doit être un nombre' }).int('doit être un entier')
@@ -37,6 +42,7 @@ function trouverReservation(id) {
 }
 
 // Plan de salle d'une séance : chaque siège avec son statut (libre / pris), calculé à la demande.
+// Consulté en boucle par les clients : ETag + If-None-Match -> 304 tant qu'aucun siège n'a changé.
 router.get('/seances/:id/sieges', (req, res) => {
   const seance = trouverSeance(req.params.id);
   const pris = idsSiegesPris(seance.id);
@@ -48,7 +54,7 @@ router.get('/seances/:id/sieges', (req, res) => {
     statut: pris.has(siege.id) ? 'pris' : 'libre',
   }));
 
-  res.json({
+  repondreAvecEtag(req, res, {
     seance_id: seance.id,
     salle_id: seance.salle_id,
     places_libres: sieges.filter((s) => s.statut === 'libre').length,
@@ -113,6 +119,51 @@ router.post('/seances/:id/reservations', valider(reservationSchema), (req, res) 
   res.status(201).location(`/reservations/${reservation.id}`).json(representer(reservation));
 });
 
+// Historique des réservations, des plus récentes aux plus anciennes (tri stable cree_le, id décroissants),
+// paginé par CURSEUR : "after" encode la position du dernier élément vu (son cree_le et son id).
+// Une réservation créée pendant le parcours s'insère en tête : elle ne décale pas la suite (ni doublon ni saut),
+// contrairement à l'offset. Prix à payer : impossible de sauter directement à la page N.
+function encoderCurseur(reservation) {
+  return Buffer.from(`${reservation.cree_le}|${reservation.id}`).toString('base64url');
+}
+
+function decoderCurseur(curseur) {
+  const [creeLe, id] = Buffer.from(curseur, 'base64url').toString().split('|');
+  const position = { temps: Date.parse(creeLe), id: Number(id) };
+  if (Number.isNaN(position.temps) || !Number.isInteger(position.id)) {
+    throw new BadRequestError(`Curseur "after" invalide : utilisez le lien links.next fourni par l'API.`);
+  }
+  return position;
+}
+
+// a vient-il avant b dans l'ordre de l'historique (plus récent d'abord, id en départage) ?
+function plusRecent(a, b) {
+  return a.temps > b.temps || (a.temps === b.temps && a.id > b.id);
+}
+
+router.get('/reservations', (req, res) => {
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+  const position = (r) => ({ temps: Date.parse(r.cree_le), id: r.id });
+
+  let historique = [...db.reservations].sort((a, b) => (plusRecent(position(a), position(b)) ? -1 : 1));
+
+  // Reprendre juste après le dernier élément vu (le "marque-page").
+  if (req.query.after) {
+    const apres = decoderCurseur(req.query.after);
+    historique = historique.filter((r) => plusRecent(apres, position(r)));
+  }
+
+  const page = historique.slice(0, limit);
+  const reste = historique.length > limit;
+  res.json({
+    data: page.map(representer),
+    pagination: { limit, after: req.query.after ?? null },
+    links: {
+      next: reste ? `/reservations?limit=${limit}&after=${encoderCurseur(page[page.length - 1])}` : null,
+    },
+  });
+});
+
 // Lire une réservation.
 router.get('/reservations/:id', (req, res) => {
   res.json(representer(trouverReservation(req.params.id)));
@@ -128,6 +179,40 @@ router.patch('/reservations/:id', valider(annulationSchema), (req, res) => {
   stockee.statut = 'cancelled';
   stockee.expire_le = null;
   res.json(representer(stockee));
+});
+
+// Confirmer (et payer) une réservation tenue. Opération sensible au double envoi (retry réseau,
+// double-clic) : l'en-tête Idempotency-Key est obligatoire, un rejeu renvoie la même réponse
+// sans créer un second paiement.
+//   200 confirmée · 400 clé absente · 404 inconnue · 409 hold expiré, annulée ou déjà confirmée
+router.post('/reservations/:id/confirmation', idempotent, (req, res) => {
+  const reservation = actualiserStatut(trouverReservation(req.params.id));
+  if (reservation.statut !== 'held') {
+    const raisons = {
+      expired: 'son hold a expiré, les sièges ont pu être repris',
+      cancelled: 'elle a été annulée',
+      confirmed: 'elle est déjà confirmée',
+    };
+    throw new ConflictError(
+      `La réservation ${reservation.id} ne peut pas être confirmée : ${raisons[reservation.statut]}.`,
+      'confirmation-impossible',
+      'Confirmation impossible',
+    );
+  }
+
+  const nbSieges = db.reservations_sieges.filter((rs) => rs.reservation_id === reservation.id).length;
+  const paiement = {
+    id: nextId('paiements'),
+    reservation_id: reservation.id,
+    montant: nbSieges * PRIX_SIEGE_CENTIMES,
+    statut: 'accepte',
+    cree_le: horloge.maintenant().toISOString(),
+  };
+  db.paiements.push(paiement);
+
+  reservation.statut = 'confirmed';
+  reservation.expire_le = null;
+  res.json({ ...representer(reservation), paiement });
 });
 
 module.exports = router;

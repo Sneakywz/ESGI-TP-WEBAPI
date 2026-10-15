@@ -74,3 +74,106 @@ describe('Piège du sujet : deux clients sur le même siège', () => {
     assert.equal(res.body.errors[0].field, 'sieges');
   });
 });
+
+describe('Confirmation idempotente (Idempotency-Key)', () => {
+  function confirmer(id, cle) {
+    const requete = request(app).post(`/reservations/${id}/confirmation`);
+    return cle ? requete.set('Idempotency-Key', cle) : requete;
+  }
+
+  test('rejeu avec la même clé -> même réponse, un seul paiement', async () => {
+    const hold = await reserver(1, ['E5']);
+    const premier = await confirmer(hold.body.id, 'cle-test-1');
+    const rejeu = await confirmer(hold.body.id, 'cle-test-1');
+
+    assert.equal(premier.status, 200);
+    assert.equal(premier.body.statut, 'confirmed');
+    assert.equal(rejeu.status, 200);
+    assert.equal(rejeu.headers['idempotent-replayed'], 'true');
+    assert.deepEqual(rejeu.body, premier.body);
+    assert.equal(rejeu.body.paiement.id, premier.body.paiement.id); // pas de second paiement
+  });
+
+  test('sans Idempotency-Key -> 400', async () => {
+    const hold = await reserver(1, ['E6']);
+    const res = await confirmer(hold.body.id);
+    assert.equal(res.status, 400);
+  });
+
+  test('même clé réutilisée pour une autre réservation -> 422', async () => {
+    const a = await reserver(1, ['E7']);
+    const b = await reserver(2, ['E8']);
+    await confirmer(a.body.id, 'cle-test-2');
+    const res = await confirmer(b.body.id, 'cle-test-2');
+    assert.equal(res.status, 422);
+  });
+
+  test('confirmer un hold expiré -> 409', async () => {
+    const hold = await reserver(1, ['E9']);
+    horloge.maintenant = () => new Date(Date.now() + 11 * 60 * 1000);
+    const res = await confirmer(hold.body.id, 'cle-test-3');
+    assert.equal(res.status, 409);
+    assert.match(res.body.type, /confirmation-impossible$/);
+  });
+});
+
+describe('Requêtes conditionnelles (ETag)', () => {
+  test('plan de salle : If-None-Match -> 304 tant que rien ne change, 200 après une réservation', async () => {
+    const lecture = await request(app).get(`/seances/${SEANCE}/sieges`);
+    const etag = lecture.headers.etag;
+    assert.ok(etag);
+
+    const inchange = await request(app).get(`/seances/${SEANCE}/sieges`).set('If-None-Match', etag);
+    assert.equal(inchange.status, 304);
+
+    await reserver(1, ['G7']);
+    const change = await request(app).get(`/seances/${SEANCE}/sieges`).set('If-None-Match', etag);
+    assert.equal(change.status, 200);
+    assert.notEqual(change.headers.etag, etag);
+  });
+
+  test('film : If-Match à jour -> 200 ; If-Match obsolète -> 412 (pas de mise à jour perdue)', async () => {
+    const etagLu = (await request(app).get('/films/4')).headers.etag;
+
+    // Paul modifie avec la version qu'il a lue : accepté.
+    const paul = await request(app).patch('/films/4').set('If-Match', etagLu).send({ duree_min: 100 });
+    assert.equal(paul.status, 200);
+
+    // Léa avait lu la même version : elle est désormais obsolète.
+    const lea = await request(app).patch('/films/4').set('If-Match', etagLu).send({ titre: 'Autre titre' });
+    assert.equal(lea.status, 412);
+    assert.match(lea.headers['content-type'], /application\/problem\+json/);
+    assert.notEqual((await request(app).get('/films/4')).body.titre, 'Autre titre');
+  });
+});
+
+describe('Historique paginé par curseur', () => {
+  test('une insertion pendant le parcours -> ni doublon ni saut (alors que l’offset doublonnerait)', async () => {
+    const avant = (await request(app).get('/reservations?limit=100')).body.data.map((r) => r.id);
+
+    // Page 1 de l'historique (les 5 plus récentes).
+    const page1 = await request(app).get('/reservations?limit=5');
+    const ids1 = page1.body.data.map((r) => r.id);
+    assert.deepEqual(ids1, avant.slice(0, 5));
+
+    // Pendant le parcours, une nouvelle réservation arrive : elle se place EN TÊTE de l'historique.
+    const nouvelle = await reserver(2, ['A9']);
+
+    // Page 2 en suivant links.next : elle reprend juste après le dernier élément vu.
+    const page2 = await request(app).get(page1.body.links.next);
+    const ids2 = page2.body.data.map((r) => r.id);
+    assert.deepEqual(ids2, avant.slice(5, 10)); // ni saut
+    assert.ok(ids2.every((id) => !ids1.includes(id))); // ni doublon
+    assert.ok(!ids2.includes(nouvelle.body.id));
+
+    // En offset (sauter 5 éléments), la nouvelle en tête aurait tout décalé d'un cran :
+    // la page 2 aurait recommencé par le dernier élément de la page 1 (doublon).
+    const apres = (await request(app).get('/reservations?limit=100')).body.data.map((r) => r.id);
+    assert.equal(apres.slice(5, 10)[0], ids1[4]);
+  });
+
+  test('curseur illisible -> 400', async () => {
+    const res = await request(app).get('/reservations?after=nimportequoi');
+    assert.equal(res.status, 400);
+  });
+});

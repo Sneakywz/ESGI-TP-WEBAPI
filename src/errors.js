@@ -52,6 +52,13 @@ class ConflictError extends ApiError {
   }
 }
 
+// 412 : la requête porte If-Match, mais la ressource a changé depuis que le client l'a lue.
+class PreconditionFailedError extends ApiError {
+  constructor(detail) {
+    super(412, 'precondition-failed', 'Version obsolète', detail);
+  }
+}
+
 // 422 : le corps est lisible mais invalide ; errors[] liste TOUS les champs fautifs.
 class ValidationError extends ApiError {
   constructor(errors) {
@@ -59,4 +66,6 @@ class ValidationError extends ApiError {
   }
 }
 
-module.exports = { ApiError, BadRequestError, NotFoundError, ConflictError, ValidationError };
+module.exports = {
+  ApiError, BadRequestError, NotFoundError, ConflictError, PreconditionFailedError, ValidationError,
+};

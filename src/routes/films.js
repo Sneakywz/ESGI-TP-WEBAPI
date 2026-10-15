@@ -4,6 +4,7 @@ const { db, nextId } = require('../store');
 const { paginer } = require('../pagination');
 const { NotFoundError, ConflictError } = require('../errors');
 const { z, valider } = require('../validation');
+const { etagDe, repondreAvecEtag, verifierIfMatch } = require('../etag');
 
 const router = express.Router();
 
@@ -28,10 +29,10 @@ router.get('/', (req, res) => {
   res.json(paginer(films, req.query, '/films'));
 });
 
-// Lire : 200 + le film, ou 404.
+// Lire : 200 + le film et son ETag, 304 si le client a déjà cette version (If-None-Match), ou 404.
 router.get('/:id', (req, res) => {
   const index = indexDuFilm(req.params.id);
-  res.json(db.films[index]);
+  repondreAvecEtag(req, res, db.films[index]);
 });
 
 // Créer : corps validé (tous les champs requis), puis 201 + en-tête Location vers le nouveau film.
@@ -44,20 +45,24 @@ router.post('/', valider(filmSchema), (req, res) => {
 
 // Remplacer : PUT envoie la ressource entière, donc tous les champs sont requis (sinon 422).
 // Le film est remplacé par le corps reçu, rien n'est conservé de l'ancien à part l'id.
+// Avec If-Match : 412 si le film a changé depuis que le client l'a lu (pas de mise à jour perdue).
 router.put('/:id', valider(filmSchema), (req, res) => {
   const index = indexDuFilm(req.params.id);
+  verifierIfMatch(req, db.films[index]);
 
   const film = { id: db.films[index].id, ...req.body };
   db.films[index] = film;
-  res.json(film);
+  res.set('ETag', etagDe(film)).json(film);
 });
 
 // Modifier : PATCH ne change que les champs fournis (tous optionnels, mais valides s'ils sont présents).
+// Avec If-Match : 412 si le film a changé depuis que le client l'a lu.
 router.patch('/:id', valider(filmSchema.partial()), (req, res) => {
   const index = indexDuFilm(req.params.id);
+  verifierIfMatch(req, db.films[index]);
 
   const film = Object.assign(db.films[index], req.body);
-  res.json(film);
+  res.set('ETag', etagDe(film)).json(film);
 });
 
 // Supprimer : 204 sans corps, 404 si le film n'existe pas.

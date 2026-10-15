@@ -18,7 +18,10 @@
       "parentId": "wrk_api_cinema",
       "name": "Base Environment",
       "data": {
-        "base_url": "http://localhost:3000"
+        "base_url": "http://localhost:3000",
+        "idempotency_key": "cle-demo-1",
+        "etag_plan": "COLLER_ICI_L_ETAG_DU_PLAN_DE_SALLE",
+        "etag_film": "COLLER_ICI_L_ETAG_DU_FILM_4"
       }
     },
     {
@@ -475,6 +478,318 @@
       "headers": [],
       "parameters": [],
       "authentication": {}
+    },
+    {
+      "_id": "fld_reservations",
+      "_type": "request_group",
+      "parentId": "wrk_api_cinema",
+      "name": "reservations (piege du sujet)",
+      "metaSortKey": 30
+    },
+    {
+      "_id": "req_plan_de_salle",
+      "_type": "request",
+      "parentId": "fld_reservations",
+      "name": "plan-de-salle",
+      "method": "GET",
+      "url": "{{ _.base_url }}/seances/725/sieges",
+      "metaSortKey": 31,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {},
+      "description": "Plan de salle de la séance 725 (salle 2, A1 à H10). H6 est confirmé dans le kit."
+    },
+    {
+      "_id": "req_reserver_hold_alice",
+      "_type": "request",
+      "parentId": "fld_reservations",
+      "name": "reserver-hold-alice",
+      "method": "POST",
+      "url": "{{ _.base_url }}/seances/725/reservations",
+      "metaSortKey": 32,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"client_id\": 1,\n  \"sieges\": [\n    \"F5\"\n  ]\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {},
+      "description": "201 + hold de 10 min (sur un serveur fraîchement démarré : réservation 261)."
+    },
+    {
+      "_id": "req_reserver_409_bob_meme_siege",
+      "_type": "request",
+      "parentId": "fld_reservations",
+      "name": "reserver-409-bob-meme-siege",
+      "method": "POST",
+      "url": "{{ _.base_url }}/seances/725/reservations",
+      "metaSortKey": 33,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"client_id\": 2,\n  \"sieges\": [\n    \"F5\",\n    \"F6\"\n  ]\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {},
+      "description": "409 siege-indisponible tant que le hold d'Alice sur F5 est valide."
+    },
+    {
+      "_id": "req_reserver_409_siege_confirme",
+      "_type": "request",
+      "parentId": "fld_reservations",
+      "name": "reserver-409-siege-confirme",
+      "method": "POST",
+      "url": "{{ _.base_url }}/seances/725/reservations",
+      "metaSortKey": 34,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"client_id\": 2,\n  \"sieges\": [\n    \"H6\"\n  ]\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {},
+      "description": ""
+    },
+    {
+      "_id": "req_reserver_422_siege_hors_salle",
+      "_type": "request",
+      "parentId": "fld_reservations",
+      "name": "reserver-422-siege-hors-salle",
+      "method": "POST",
+      "url": "{{ _.base_url }}/seances/725/reservations",
+      "metaSortKey": 35,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"client_id\": 2,\n  \"sieges\": [\n    \"Z99\"\n  ]\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {},
+      "description": ""
+    },
+    {
+      "_id": "req_reservations_de_la_seance",
+      "_type": "request",
+      "parentId": "fld_reservations",
+      "name": "reservations-de-la-seance",
+      "method": "GET",
+      "url": "{{ _.base_url }}/seances/725/reservations",
+      "metaSortKey": 36,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {},
+      "description": ""
+    },
+    {
+      "_id": "req_reservation_get",
+      "_type": "request",
+      "parentId": "fld_reservations",
+      "name": "reservation-get",
+      "method": "GET",
+      "url": "{{ _.base_url }}/reservations/261",
+      "metaSortKey": 37,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {},
+      "description": ""
+    },
+    {
+      "_id": "req_confirmer_idempotent",
+      "_type": "request",
+      "parentId": "fld_reservations",
+      "name": "confirmer-idempotent",
+      "method": "POST",
+      "url": "{{ _.base_url }}/reservations/261/confirmation",
+      "metaSortKey": 38,
+      "body": {},
+      "headers": [
+        {
+          "name": "Idempotency-Key",
+          "value": "{{ _.idempotency_key }}"
+        }
+      ],
+      "parameters": [],
+      "authentication": {},
+      "description": "À envoyer DEUX fois : 200 puis 200 identique avec Idempotent-Replayed: true (un seul paiement)."
+    },
+    {
+      "_id": "req_confirmer_400_sans_cle",
+      "_type": "request",
+      "parentId": "fld_reservations",
+      "name": "confirmer-400-sans-cle",
+      "method": "POST",
+      "url": "{{ _.base_url }}/reservations/261/confirmation",
+      "metaSortKey": 39,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {},
+      "description": ""
+    },
+    {
+      "_id": "req_annuler_reservation",
+      "_type": "request",
+      "parentId": "fld_reservations",
+      "name": "annuler-reservation",
+      "method": "PATCH",
+      "url": "{{ _.base_url }}/reservations/261",
+      "metaSortKey": 40,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"statut\": \"cancelled\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {},
+      "description": ""
+    },
+    {
+      "_id": "req_historique_curseur",
+      "_type": "request",
+      "parentId": "fld_reservations",
+      "name": "historique-curseur",
+      "method": "GET",
+      "url": "{{ _.base_url }}/reservations?limit=5",
+      "metaSortKey": 41,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {},
+      "description": "Suivre links.next pour la page suivante."
+    },
+    {
+      "_id": "fld_etag",
+      "_type": "request_group",
+      "parentId": "wrk_api_cinema",
+      "name": "etag (requetes conditionnelles)",
+      "metaSortKey": 42
+    },
+    {
+      "_id": "req_plan_de_salle_etag",
+      "_type": "request",
+      "parentId": "fld_etag",
+      "name": "plan-de-salle-etag",
+      "method": "GET",
+      "url": "{{ _.base_url }}/seances/725/sieges",
+      "metaSortKey": 43,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {},
+      "description": "Copier l'en-tête ETag de la réponse dans la variable etag_plan de l'environnement."
+    },
+    {
+      "_id": "req_plan_de_salle_304",
+      "_type": "request",
+      "parentId": "fld_etag",
+      "name": "plan-de-salle-304",
+      "method": "GET",
+      "url": "{{ _.base_url }}/seances/725/sieges",
+      "metaSortKey": 44,
+      "body": {},
+      "headers": [
+        {
+          "name": "If-None-Match",
+          "value": "{{ _.etag_plan }}"
+        }
+      ],
+      "parameters": [],
+      "authentication": {},
+      "description": "304 sans corps tant qu'aucun siège n'a changé."
+    },
+    {
+      "_id": "req_film_get_etag",
+      "_type": "request",
+      "parentId": "fld_etag",
+      "name": "film-get-etag",
+      "method": "GET",
+      "url": "{{ _.base_url }}/films/4",
+      "metaSortKey": 45,
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": {},
+      "description": "Copier l'en-tête ETag dans la variable etag_film."
+    },
+    {
+      "_id": "req_film_patch_if_match",
+      "_type": "request",
+      "parentId": "fld_etag",
+      "name": "film-patch-if-match",
+      "method": "PATCH",
+      "url": "{{ _.base_url }}/films/4",
+      "metaSortKey": 46,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"duree_min\": 100\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "If-Match",
+          "value": "{{ _.etag_film }}"
+        }
+      ],
+      "parameters": [],
+      "authentication": {},
+      "description": "200 la 1re fois ; renvoyer la même requête -> 412 (la version lue est devenue obsolète)."
+    },
+    {
+      "_id": "req_film_patch_412_obsolete",
+      "_type": "request",
+      "parentId": "fld_etag",
+      "name": "film-patch-412-obsolete",
+      "method": "PATCH",
+      "url": "{{ _.base_url }}/films/4",
+      "metaSortKey": 47,
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"titre\": \"Titre écrasé ?\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "If-Match",
+          "value": "\"version-obsolete\""
+        }
+      ],
+      "parameters": [],
+      "authentication": {},
+      "description": ""
     }
   ]
 }
