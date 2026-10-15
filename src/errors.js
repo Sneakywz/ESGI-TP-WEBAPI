@@ -45,9 +45,10 @@ class NotFoundError extends ApiError {
 }
 
 // 409 : la requête est valide, mais l'état actuel de la ressource l'empêche.
+// Une catégorie plus précise peut être donnée (ex. siege-indisponible).
 class ConflictError extends ApiError {
-  constructor(detail) {
-    super(409, 'conflict', "Conflit avec l'état actuel", detail);
+  constructor(detail, categorie = 'conflict', title = "Conflit avec l'état actuel") {
+    super(409, categorie, title, detail);
   }
 }
 

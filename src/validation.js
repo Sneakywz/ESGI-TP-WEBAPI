@@ -5,9 +5,11 @@ const { BadRequestError, ValidationError } = require('./errors');
 // Messages d'erreur par défaut de zod en français.
 z.config(z.locales.fr());
 
-// Sans Content-Type: application/json, le serveur ne sait pas lire le corps : 400.
+// Une écriture qui envoie un corps sans Content-Type: application/json : le serveur ne sait pas le lire, 400.
+// (Une écriture sans corps, comme une confirmation, n'est pas concernée.)
 function exigerJson(req, res, next) {
-  if (['POST', 'PUT', 'PATCH'].includes(req.method) && !req.is('application/json')) {
+  const aUnCorps = req.headers['transfer-encoding'] !== undefined || Number(req.headers['content-length']) > 0;
+  if (['POST', 'PUT', 'PATCH'].includes(req.method) && aUnCorps && !req.is('application/json')) {
     throw new BadRequestError('En-tête Content-Type: application/json attendu.');
   }
   next();

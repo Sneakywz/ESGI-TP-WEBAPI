@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "node --test tests/"
+    "test": "node --test tests/",
+    "demo:concurrence": "node scripts/concurrence.js"
   },
   "keywords": [],
   "author": "",
