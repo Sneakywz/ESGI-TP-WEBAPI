@@ -47,8 +47,8 @@ Stratégie détaillée : `docs/api-design.md`, section « Stratégie face au pi�
 Le dossier `erreurs` rejoue les cas d'échec (validation multi-champs, JSON illisible, `Content-Type`
 absent, référence inexistante, route inconnue). Le dossier `reservations` rejoue le piège (hold, `409`,
 confirmation avec `Idempotency-Key`, historique par curseur) et le dossier `etag` les requêtes
-conditionnelles (`304`, `412`) ; les ETag à réutiliser se collent dans les variables `etag_plan` et
-`etag_film` de l'environnement.
+conditionnelles (`304`, `412`) ; les variables `etag_plan` et `etag_film` de l'environnement contiennent
+les ETag de départ (valables juste après un démarrage, l'ETag étant une empreinte du contenu).
 
 ## Pagination
 
