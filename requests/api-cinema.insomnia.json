@@ -20,8 +20,8 @@
       "data": {
         "base_url": "http://localhost:3000",
         "idempotency_key": "cle-demo-1",
-        "etag_plan": "COLLER_ICI_L_ETAG_DU_PLAN_DE_SALLE",
-        "etag_film": "COLLER_ICI_L_ETAG_DU_FILM_4"
+        "etag_plan": "nFUduEuoVsAonhxh",
+        "etag_film": "lB5NKuYvJ4eKVzSb"
       }
     },
     {
